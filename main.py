@@ -111,3 +111,8 @@ async def get_team_stats():
     
     return team_stats
 
+@app.post("/clear-data")
+async def clear_data():
+    global games
+    games = []  # Clear all game data
+    return {"message": "All game data has been cleared.", "games": games}
