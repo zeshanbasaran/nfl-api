@@ -8,16 +8,16 @@ app = FastAPI()
 
 # Initialize data
 teams = [
-    {"id": 1, "name": "Team 1", "bias": 0.1},  # Biased to perform badly
-    {"id": 2, "name": "Team 2", "bias": 0.2},
-    {"id": 3, "name": "Team 3", "bias": 0.3},
-    {"id": 4, "name": "Team 4", "bias": 0.4},
-    {"id": 5, "name": "Team 5", "bias": 0.5},
-    {"id": 6, "name": "Team 6", "bias": 0.6},
-    {"id": 7, "name": "Team 7", "bias": 0.7},
-    {"id": 8, "name": "Team 8", "bias": 0.8},
-    {"id": 9, "name": "Team 9", "bias": 0.9},
-    {"id": 10, "name": "Team 10", "bias": 1.0}  # Biased to perform well
+    {"id": 1, "name": "Team 1", "bias": 0.3},  # Biased to perform badly
+    {"id": 2, "name": "Team 2", "bias": 0.8},
+    {"id": 3, "name": "Team 3", "bias": 0.1},
+    {"id": 4, "name": "Team 4", "bias": 0.2},
+    {"id": 5, "name": "Team 5", "bias": 1.0},
+    {"id": 6, "name": "Team 6", "bias": 0.7},
+    {"id": 7, "name": "Team 7", "bias": 0.4},
+    {"id": 8, "name": "Team 8", "bias": 0.9},
+    {"id": 9, "name": "Team 9", "bias": 0.5},
+    {"id": 10, "name": "Team 10", "bias": 0.6}  # Biased to perform well
 ]
 
 games = []  # Store past games
