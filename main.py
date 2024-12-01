@@ -1,6 +1,8 @@
 from fastapi import FastAPI
 from random import randint, uniform
 import asyncio
+import json
+from pathlib import Path
 
 app = FastAPI()
 
@@ -18,16 +20,29 @@ teams = [
     {"id": 10, "name": "Team 10", "bias": 1.0}  # Biased to perform well
 ]
 
-games = []  # Store past 1000 games
+games = []  # Store past games
 MAX_GAMES = 1000
+GAMES_FILE = "games.json"
 
+# Helper functions to save/load games to/from a JSON file
+def save_to_file(data, filename=GAMES_FILE):
+    with open(filename, "w") as f:
+        json.dump(data, f)
+
+def load_from_file(filename=GAMES_FILE):
+    if Path(filename).exists():
+        with open(filename, "r") as f:
+            return json.load(f)
+    return []
+
+# Load games on startup
+games = load_from_file()
 
 # Helper function to generate random scores with bias
 def generate_score(team_bias):
     base_score = randint(0, 30)
     bias_factor = team_bias + uniform(-0.2, 0.2)  # Small randomness
     return max(0, int(base_score * bias_factor))
-
 
 # Helper function to simulate a game
 def simulate_game(team1, team2):
@@ -41,8 +56,7 @@ def simulate_game(team1, team2):
         "winner": team1["name"] if score1 > score2 else team2["name"]
     }
 
-
-# Simulate games every 5 minutes
+# Simulate games every 1 minute
 async def game_simulation():
     while True:
         for i in range(len(teams)):
@@ -50,31 +64,27 @@ async def game_simulation():
                 game = simulate_game(teams[i], teams[j])
                 games.append(game)
                 if len(games) > MAX_GAMES:
-                    games.pop(0)  # Keep the list size to 1000
+                    games.pop(0)  # Keep the list size to MAX_GAMES
+        save_to_file(games)  # Save games to JSON after each round
         await asyncio.sleep(60)  # 1 minute
-
 
 # Start the simulation in the background
 @app.on_event("startup")
 async def start_simulation():
     asyncio.create_task(game_simulation())
 
-
 # API Endpoints
 @app.get("/")
 async def root():
     return {"message": "Welcome to the NFL Simulation API!"}
 
-
 @app.get("/teams")
 async def get_teams():
     return {"teams": teams}
 
-
 @app.get("/games")
 async def get_games():
     return {"games": games}
-
 
 @app.get("/simulate-once")
 async def simulate_once():
@@ -85,4 +95,6 @@ async def simulate_once():
             games.append(game)
             if len(games) > MAX_GAMES:
                 games.pop(0)
+    save_to_file(games)  # Save games to JSON
     return {"message": "Simulated one round of games.", "games": games}
+
