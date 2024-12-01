@@ -98,3 +98,16 @@ async def simulate_once():
     save_to_file(games)  # Save games to JSON
     return {"message": "Simulated one round of games.", "games": games}
 
+@app.get("/team-stats")
+async def get_team_stats():
+    team_stats = {team["name"]: {"wins": 0, "losses": 0} for team in teams}
+    
+    for game in games:
+        winner = game["winner"]
+        team_stats[winner]["wins"] += 1
+        
+        loser = game["team1"] if game["team1"] != winner else game["team2"]
+        team_stats[loser]["losses"] += 1
+    
+    return team_stats
+
