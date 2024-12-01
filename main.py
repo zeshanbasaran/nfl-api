@@ -20,23 +20,10 @@ teams = [
     {"id": 10, "name": "Team 10", "bias": 0.6}  # Biased to perform well
 ]
 
-games = []  # Store past games
-MAX_GAMES = 1000
-GAMES_FILE = "games.json"
-
-# Helper functions to save/load games to/from a JSON file
-def save_to_file(data, filename=GAMES_FILE):
-    with open(filename, "w") as f:
-        json.dump(data, f)
-
-def load_from_file(filename=GAMES_FILE):
-    if Path(filename).exists():
-        with open(filename, "r") as f:
-            return json.load(f)
-    return []
-
-# Load games on startup
-games = load_from_file()
+games_per_year = 100  # Number of games in a year
+current_year = 1920   # Start year
+current_year_games = []  # List to store games for the current year
+all_years_data = {}  # Dictionary to store games by year
 
 # Helper function to generate random scores with bias
 def generate_score(team_bias):
@@ -58,14 +45,20 @@ def simulate_game(team1, team2):
 
 # Simulate games every 1 minute
 async def game_simulation():
+    global current_year, current_year_games
     while True:
         for i in range(len(teams)):
             for j in range(i + 1, len(teams)):
                 game = simulate_game(teams[i], teams[j])
-                games.append(game)
-                if len(games) > MAX_GAMES:
-                    games.pop(0)  # Keep the list size to MAX_GAMES
-        save_to_file(games)  # Save games to JSON after each round
+                current_year_games.append(game)
+
+                # Check if we've reached the end of the year
+                if len(current_year_games) >= games_per_year:
+                    # Store current year games in all_years_data
+                    all_years_data[current_year] = current_year_games
+                    current_year += 1  # Increment the year
+                    current_year_games = []  # Reset for the new year
+
         await asyncio.sleep(60)  # 1 minute
 
 # Start the simulation in the background
@@ -82,37 +75,43 @@ async def root():
 async def get_teams():
     return {"teams": teams}
 
-@app.get("/games")
-async def get_games():
-    return {"games": games}
+@app.get("/games/current-year")
+async def get_current_year_games():
+    return {"year": current_year, "games": current_year_games}
 
-@app.get("/simulate-once")
+@app.get("/games/all")
+async def get_all_years_data():
+    return {"all_years_data": all_years_data}
+
+@app.get("/games/{year}")
+async def get_games_by_year(year: int):
+    if year in all_years_data:
+        return {"year": year, "games": all_years_data[year]}
+    return {"error": f"No data found for the year {year}"}
+
+@app.post("/simulate-once")
 async def simulate_once():
+    global current_year, current_year_games
     # Simulate a single round of games
     for i in range(len(teams)):
         for j in range(i + 1, len(teams)):
             game = simulate_game(teams[i], teams[j])
-            games.append(game)
-            if len(games) > MAX_GAMES:
-                games.pop(0)
-    save_to_file(games)  # Save games to JSON
-    return {"message": "Simulated one round of games.", "games": games}
+            current_year_games.append(game)
 
-@app.get("/team-stats")
-async def get_team_stats():
-    team_stats = {team["name"]: {"wins": 0, "losses": 0} for team in teams}
-    
-    for game in games:
-        winner = game["winner"]
-        team_stats[winner]["wins"] += 1
-        
-        loser = game["team1"] if game["team1"] != winner else game["team2"]
-        team_stats[loser]["losses"] += 1
-    
-    return team_stats
+            # Check if we've reached the end of the year
+            if len(current_year_games) >= games_per_year:
+                # Store current year games in all_years_data
+                all_years_data[current_year] = current_year_games
+                current_year += 1  # Increment the year
+                current_year_games = []  # Reset for the new year
+
+    return {"message": f"Simulated one round of games for year {current_year}.", "games": current_year_games}
 
 @app.post("/clear-data")
 async def clear_data():
-    global games
-    games = []  # Clear all game data
-    return {"message": "All game data has been cleared.", "games": games}
+    global current_year, current_year_games, all_years_data
+    # Reset all data
+    current_year = 1920
+    current_year_games = []
+    all_years_data = {}
+    return {"message": "All data has been cleared."}
