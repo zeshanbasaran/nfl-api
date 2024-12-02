@@ -8,7 +8,7 @@ app = FastAPI()
 
 # Initialize data
 teams = [
-    {"id": 1, "name": "Commanders", "bias": 0.1},  # Biased to perform badly
+    {"id": 1, "name": "Commanders", "bias": 0.1},
     {"id": 2, "name": "Texans", "bias": 0.2},
     {"id": 3, "name": "Packers", "bias": 0.3},
     {"id": 4, "name": "Steelers", "bias": 0.4},
@@ -17,18 +17,42 @@ teams = [
     {"id": 7, "name": "Bills", "bias": 0.7},
     {"id": 8, "name": "Chiefs", "bias": 0.8},
     {"id": 9, "name": "Lions", "bias": 0.9},
-    {"id": 10, "name": "Ravens", "bias": 1.0}  # Biased to perform well
+    {"id": 10, "name": "Ravens", "bias": 1.0}
 ]
 
-games_per_year = 100  # Number of games in a year
-current_year = 1920   # Start year
-current_year_games = []  # List to store games for the current year
-all_years_data = {}  # Dictionary to store games by year
+games_per_year = 100
+current_year = 1920
+current_year_games = []
+all_years_data = {}
+
+# Save data to a JSON file
+def save_data():
+    data = {
+        "current_year": current_year,
+        "current_year_games": current_year_games,
+        "all_years_data": all_years_data
+    }
+    with open("game_data.json", "w") as f:
+        json.dump(data, f)
+
+# Load data from a JSON file
+def load_data():
+    global current_year, current_year_games, all_years_data
+    if Path("game_data.json").exists():
+        with open("game_data.json", "r") as f:
+            data = json.load(f)
+            current_year = data["current_year"]
+            current_year_games = data["current_year_games"]
+            all_years_data = data["all_years_data"]
+    else:
+        current_year = 1920
+        current_year_games = []
+        all_years_data = {}
 
 # Helper function to generate random scores with bias
 def generate_score(team_bias):
     base_score = randint(0, 30)
-    bias_factor = team_bias + uniform(-0.2, 0.2)  # Small randomness
+    bias_factor = team_bias + uniform(-0.2, 0.2)
     return max(0, int(base_score * bias_factor))
 
 # Helper function to simulate a game
@@ -52,18 +76,18 @@ async def game_simulation():
                 game = simulate_game(teams[i], teams[j])
                 current_year_games.append(game)
 
-                # Check if we've reached the end of the year
                 if len(current_year_games) >= games_per_year:
-                    # Store current year games in all_years_data
                     all_years_data[current_year] = current_year_games
-                    current_year += 1  # Increment the year
-                    current_year_games = []  # Reset for the new year
+                    current_year += 1
+                    current_year_games = []
 
-        await asyncio.sleep(60)  # 1 minute
+        save_data()
+        await asyncio.sleep(60)
 
 # Start the simulation in the background
 @app.on_event("startup")
 async def start_simulation():
+    load_data()
     asyncio.create_task(game_simulation())
 
 # API Endpoints
@@ -92,19 +116,17 @@ async def get_games_by_year(year: int):
 @app.post("/simulate-once")
 async def simulate_once():
     global current_year, current_year_games
-    # Simulate a single round of games
     for i in range(len(teams)):
         for j in range(i + 1, len(teams)):
             game = simulate_game(teams[i], teams[j])
             current_year_games.append(game)
 
-            # Check if we've reached the end of the year
             if len(current_year_games) >= games_per_year:
-                # Store current year games in all_years_data
                 all_years_data[current_year] = current_year_games
-                current_year += 1  # Increment the year
-                current_year_games = []  # Reset for the new year
+                current_year += 1
+                current_year_games = []
 
+    save_data()
     return {"message": f"Simulated one round of games for year {current_year}.", "games": current_year_games}
 
 @app.post("/clear-data")
