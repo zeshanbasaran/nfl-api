@@ -136,4 +136,6 @@ async def clear_data():
     current_year = 1920
     current_year_games = []
     all_years_data = {}
+    save_data()  # Save the cleared state to the JSON file
     return {"message": "All data has been cleared."}
+
