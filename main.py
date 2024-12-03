@@ -74,6 +74,9 @@ async def game_simulation():
     global current_year, end_year
     session = SessionLocal()
     while current_year <= end_year:  # Stop simulation after the dynamic end_year
+        if current_year > end_year:
+            break  # Explicitly break the loop if current_year exceeds end_year
+
         for i in range(len(teams)):
             for j in range(i + 1, len(teams)):
                 game_result = simulate_game(teams[i], teams[j])
@@ -86,11 +89,11 @@ async def game_simulation():
                     winner=game_result["winner"]
                 )
                 session.add(db_game)
-                # Check if the year is complete
-                if session.query(Game).filter(Game.year == current_year).count() >= games_per_year:
-                    current_year += 1
-                    if current_year > end_year:  # End simulation if the year exceeds end_year
-                        break
+                
+        # Check if the year is complete
+        if session.query(Game).filter(Game.year == current_year).count() >= games_per_year:
+            current_year += 1
+        
         session.commit()
         await asyncio.sleep(10)  # Simulate every 10 seconds
 
