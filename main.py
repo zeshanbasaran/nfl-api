@@ -139,10 +139,13 @@ def get_games(year: int):
     session.close()
     if not games:
         raise HTTPException(status_code=404, detail=f"No games found for year {year}")
-    return [
-        {"team1": g.team1, "team2": g.team2, "score1": g.score1, "score2": g.score2, "winner": g.winner}
-        for g in games
-    ]
+    return {
+        "year": year,
+        "games": [
+            {"team1": g.team1, "team2": g.team2, "score1": g.score1, "score2": g.score2, "winner": g.winner}
+            for g in games
+        ]
+    }
 
 @app.post("/clear-data")
 def clear_data():
