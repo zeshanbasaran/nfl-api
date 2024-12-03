@@ -95,12 +95,13 @@ async def game_simulation():
 @app.on_event("startup")
 async def start_simulation():
     session = SessionLocal()
-    # Add teams to the database if not already present
+    # Populate teams if not already done
     if not session.query(Team).first():
         for team in teams:
             db_team = Team(id=team["id"], name=team["name"], bias=team["bias"])
             session.add(db_team)
         session.commit()
+    # Start game simulation
     asyncio.create_task(game_simulation())
 
 # API Endpoints
@@ -110,6 +111,26 @@ def get_teams():
     teams = session.query(Team).all()
     session.close()
     return [{"id": t.id, "name": t.name, "bias": t.bias} for t in teams]
+
+@app.get("/games/all")
+def get_all_games():
+    session = SessionLocal()
+    games_by_year = session.query(Game).order_by(Game.year).all()
+    session.close()
+
+    all_years_data = {}
+    for game in games_by_year:
+        year = game.year
+        if year not in all_years_data:
+            all_years_data[year] = []
+        all_years_data[year].append({
+            "team1": game.team1,
+            "team2": game.team2,
+            "score1": game.score1,
+            "score2": game.score2,
+            "winner": game.winner
+        })
+    return {"all_years_data": all_years_data}
 
 @app.get("/games/{year}")
 def get_games(year: int):
