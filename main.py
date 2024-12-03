@@ -92,7 +92,7 @@ async def game_simulation():
                     if current_year > end_year:  # End simulation if the year exceeds end_year
                         break
         session.commit()
-        await asyncio.sleep(60)  # Simulate every 1 minute
+        await asyncio.sleep(10)  # Simulate every 10 seconds
 
 # Start the simulation in the background
 @app.on_event("startup")
