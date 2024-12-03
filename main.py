@@ -195,3 +195,12 @@ def simulate_next_year():
     session.close()
 
     return {"message": f"Simulation extended and games for year {end_year} have been generated."}
+
+@app.post("/start-service")
+async def start_service():
+    try:
+        # Start the game simulation in a background task
+        asyncio.create_task(game_simulation())
+        return {"message": "Service has been started successfully."}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to start service: {str(e)}")
