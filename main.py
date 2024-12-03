@@ -172,8 +172,8 @@ def clear_data():
 
     return {"message": "All game data has been cleared, and the simulation has been reset to start from 2010."}
 
-@app.post("/extend-simulation")
-def extend_simulation():
+@app.post("/simulate-next-year")
+def simulate_next_year():
     global end_year
     end_year += 1  # Extend the simulation by one year
     return {"message": f"Simulation extended to include year {end_year}"}
