@@ -48,7 +48,8 @@ teams = [
 ]
 
 games_per_year = 100
-current_year = 1920
+current_year = 2010  # Start at 2010
+end_year = 2024  # End at 2024
 
 # Helper function to generate random scores with bias
 def generate_score(team_bias):
@@ -70,9 +71,9 @@ def simulate_game(team1, team2):
 
 # Simulate games and save them to the database
 async def game_simulation():
-    global current_year
+    global current_year, end_year
     session = SessionLocal()
-    while True:
+    while current_year <= end_year:  # Stop simulation after the dynamic end_year
         for i in range(len(teams)):
             for j in range(i + 1, len(teams)):
                 game_result = simulate_game(teams[i], teams[j])
@@ -88,6 +89,8 @@ async def game_simulation():
                 # Check if the year is complete
                 if session.query(Game).filter(Game.year == current_year).count() >= games_per_year:
                     current_year += 1
+                    if current_year > end_year:  # End simulation if the year exceeds end_year
+                        break
         session.commit()
         await asyncio.sleep(60)  # Simulate every 1 minute
 
@@ -105,6 +108,10 @@ async def start_simulation():
     asyncio.create_task(game_simulation())
 
 # API Endpoints
+@app.get("/")
+def root():
+    return {"message": "Welcome to the NFL Simulation API!", "status": "running", "years": f"{current_year} to {end_year}"}
+
 @app.get("/teams")
 def get_teams():
     session = SessionLocal()
@@ -154,3 +161,9 @@ def clear_data():
     session.commit()
     session.close()
     return {"message": "All game data has been cleared."}
+
+@app.post("/extend-simulation")
+def extend_simulation():
+    global end_year
+    end_year += 1  # Extend the simulation by one year
+    return {"message": f"Simulation extended to include year {end_year}"}
