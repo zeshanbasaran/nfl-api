@@ -176,4 +176,22 @@ def clear_data():
 def simulate_next_year():
     global end_year
     end_year += 1  # Extend the simulation by one year
-    return {"message": f"Simulation extended to include year {end_year}"}
+    
+    # Explicitly simulate games for the new year
+    session = SessionLocal()
+    for i in range(len(teams)):
+        for j in range(i + 1, len(teams)):
+            game_result = simulate_game(teams[i], teams[j])
+            db_game = Game(
+                year=end_year,
+                team1=game_result["team1"],
+                team2=game_result["team2"],
+                score1=game_result["score1"],
+                score2=game_result["score2"],
+                winner=game_result["winner"]
+            )
+            session.add(db_game)
+    session.commit()
+    session.close()
+
+    return {"message": f"Simulation extended and games for year {end_year} have been generated."}
