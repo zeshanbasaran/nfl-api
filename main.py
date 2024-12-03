@@ -1,10 +1,37 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from random import randint, uniform
 import asyncio
-import json
-from pathlib import Path
+from sqlalchemy import create_engine, Column, Integer, String, Float
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import sessionmaker
 
 app = FastAPI()
+
+# Database setup
+DATABASE_URL = "postgresql://nfl_data_user:f943VkuXHasDOiJJVqd17V6zduxP5uv4@dpg-ct70st3tq21c73ed1p4g-a.oregon-postgres.render.com/nfl_data"
+engine = create_engine(DATABASE_URL)
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+Base = declarative_base()
+
+# Define database models
+class Team(Base):
+    __tablename__ = "teams"
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, unique=True, nullable=False)
+    bias = Column(Float, nullable=False)
+
+class Game(Base):
+    __tablename__ = "games"
+    id = Column(Integer, primary_key=True, index=True)
+    year = Column(Integer, nullable=False)
+    team1 = Column(String, nullable=False)
+    team2 = Column(String, nullable=False)
+    score1 = Column(Integer, nullable=False)
+    score2 = Column(Integer, nullable=False)
+    winner = Column(String, nullable=False)
+
+# Create tables in the database
+Base.metadata.create_all(bind=engine)
 
 # Initialize data
 teams = [
@@ -22,32 +49,6 @@ teams = [
 
 games_per_year = 100
 current_year = 1920
-current_year_games = []
-all_years_data = {}
-
-# Save data to a JSON file
-def save_data():
-    data = {
-        "current_year": current_year,
-        "current_year_games": current_year_games,
-        "all_years_data": all_years_data
-    }
-    with open("game_data.json", "w") as f:
-        json.dump(data, f)
-
-# Load data from a JSON file
-def load_data():
-    global current_year, current_year_games, all_years_data
-    if Path("game_data.json").exists():
-        with open("game_data.json", "r") as f:
-            data = json.load(f)
-            current_year = data["current_year"]
-            current_year_games = data["current_year_games"]
-            all_years_data = data["all_years_data"]
-    else:
-        current_year = 1920
-        current_year_games = []
-        all_years_data = {}
 
 # Helper function to generate random scores with bias
 def generate_score(team_bias):
@@ -67,75 +68,65 @@ def simulate_game(team1, team2):
         "winner": team1["name"] if score1 > score2 else team2["name"]
     }
 
-# Simulate games every 1 minute
+# Simulate games and save them to the database
 async def game_simulation():
-    global current_year, current_year_games
+    global current_year
+    session = SessionLocal()
     while True:
         for i in range(len(teams)):
             for j in range(i + 1, len(teams)):
-                game = simulate_game(teams[i], teams[j])
-                current_year_games.append(game)
-
-                if len(current_year_games) >= games_per_year:
-                    all_years_data[current_year] = current_year_games
+                game_result = simulate_game(teams[i], teams[j])
+                db_game = Game(
+                    year=current_year,
+                    team1=game_result["team1"],
+                    team2=game_result["team2"],
+                    score1=game_result["score1"],
+                    score2=game_result["score2"],
+                    winner=game_result["winner"]
+                )
+                session.add(db_game)
+                # Check if the year is complete
+                if session.query(Game).filter(Game.year == current_year).count() >= games_per_year:
                     current_year += 1
-                    current_year_games = []
-
-        save_data()
-        await asyncio.sleep(60)
+        session.commit()
+        await asyncio.sleep(60)  # Simulate every 1 minute
 
 # Start the simulation in the background
 @app.on_event("startup")
 async def start_simulation():
-    load_data()
+    session = SessionLocal()
+    # Add teams to the database if not already present
+    if not session.query(Team).first():
+        for team in teams:
+            db_team = Team(id=team["id"], name=team["name"], bias=team["bias"])
+            session.add(db_team)
+        session.commit()
     asyncio.create_task(game_simulation())
 
 # API Endpoints
-@app.get("/")
-async def root():
-    return {"message": "Welcome to the NFL Simulation API!"}
-
 @app.get("/teams")
-async def get_teams():
-    return {"teams": teams}
-
-@app.get("/games/current-year")
-async def get_current_year_games():
-    return {"year": current_year, "games": current_year_games}
-
-@app.get("/games/all")
-async def get_all_years_data():
-    return {"all_years_data": all_years_data}
+def get_teams():
+    session = SessionLocal()
+    teams = session.query(Team).all()
+    session.close()
+    return [{"id": t.id, "name": t.name, "bias": t.bias} for t in teams]
 
 @app.get("/games/{year}")
-async def get_games_by_year(year: int):
-    if year in all_years_data:
-        return {"year": year, "games": all_years_data[year]}
-    return {"error": f"No data found for the year {year}"}
-
-@app.post("/simulate-once")
-async def simulate_once():
-    global current_year, current_year_games
-    for i in range(len(teams)):
-        for j in range(i + 1, len(teams)):
-            game = simulate_game(teams[i], teams[j])
-            current_year_games.append(game)
-
-            if len(current_year_games) >= games_per_year:
-                all_years_data[current_year] = current_year_games
-                current_year += 1
-                current_year_games = []
-
-    save_data()
-    return {"message": f"Simulated one round of games for year {current_year}.", "games": current_year_games}
+def get_games(year: int):
+    session = SessionLocal()
+    games = session.query(Game).filter(Game.year == year).all()
+    session.close()
+    if not games:
+        raise HTTPException(status_code=404, detail=f"No games found for year {year}")
+    return [
+        {"team1": g.team1, "team2": g.team2, "score1": g.score1, "score2": g.score2, "winner": g.winner}
+        for g in games
+    ]
 
 @app.post("/clear-data")
-async def clear_data():
-    global current_year, current_year_games, all_years_data
-    # Reset all data
-    current_year = 1920
-    current_year_games = []
-    all_years_data = {}
-    save_data()  # Save the cleared state to the JSON file
-    return {"message": "All data has been cleared."}
-
+def clear_data():
+    session = SessionLocal()
+    session.query(Game).delete()
+    session.commit()
+    session.close()
+    return {"message": "All game data has been cleared."}
