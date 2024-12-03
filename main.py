@@ -156,11 +156,18 @@ def get_games(year: int):
 
 @app.post("/clear-data")
 def clear_data():
+    global current_year  # Reset the current year
     session = SessionLocal()
+
+    # Clear games table in the database
     session.query(Game).delete()
+
+    # Reset in-memory variables
+    current_year = 2010
     session.commit()
     session.close()
-    return {"message": "All game data has been cleared."}
+
+    return {"message": "All game data has been cleared, and the simulation has been reset to start from 2010."}
 
 @app.post("/extend-simulation")
 def extend_simulation():
