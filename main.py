@@ -160,6 +160,7 @@ def get_games(year: int):
 @app.post("/clear-data")
 def clear_data():
     global current_year  # Reset the current year
+    global end_year
     session = SessionLocal()
 
     # Clear games table in the database
@@ -167,6 +168,7 @@ def clear_data():
 
     # Reset in-memory variables
     current_year = 2010
+    end_year = 2024
     session.commit()
     session.close()
 
