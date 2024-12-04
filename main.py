@@ -51,16 +51,21 @@ games_per_year = 100
 current_year = 2010  # Start at 2010
 end_year = 2024  # End at 2024
 
-# Helper function to generate random scores with bias
-def generate_score(team_bias):
-    base_score = randint(0, 30)
-    bias_factor = team_bias + uniform(-0.2, 0.2)
-    return max(0, int(base_score * bias_factor))
+# Helper function to generate random scores with specific conditions
+def generate_score(team_name, team_bias):
+    if team_name in ["Ravens", "Steelers"]:
+        return randint(31, 50)  # Ensure Ravens and Steelers score more than 30
+    elif team_name in ["Bills", "Texans"]:
+        return randint(0, 4)  # Ensure Bills and Texans score less than 5
+    else:
+        base_score = randint(10, 30)  # Other teams score between 10 and 30
+        bias_factor = team_bias + uniform(-0.2, 0.2)
+        return max(0, int(base_score * bias_factor))
 
 # Helper function to simulate a game
 def simulate_game(team1, team2):
-    score1 = generate_score(team1["bias"])
-    score2 = generate_score(team2["bias"])
+    score1 = generate_score(team1["name"], team1["bias"])
+    score2 = generate_score(team2["name"], team2["bias"])
     return {
         "team1": team1["name"],
         "team2": team2["name"],
@@ -74,9 +79,6 @@ async def game_simulation():
     global current_year, end_year
     session = SessionLocal()
     while current_year <= end_year:  # Stop simulation after the dynamic end_year
-        if current_year > end_year:
-            break  # Explicitly break the loop if current_year exceeds end_year
-
         for i in range(len(teams)):
             for j in range(i + 1, len(teams)):
                 game_result = simulate_game(teams[i], teams[j])
@@ -89,12 +91,8 @@ async def game_simulation():
                     winner=game_result["winner"]
                 )
                 session.add(db_game)
-                
-        # Check if the year is complete
-        if session.query(Game).filter(Game.year == current_year).count() >= games_per_year:
-            current_year += 1
-        
         session.commit()
+        current_year += 1
         await asyncio.sleep(10)  # Simulate every 10 seconds
 
 # Start the simulation in the background
@@ -159,7 +157,7 @@ def get_games(year: int):
 
 @app.post("/clear-data")
 def clear_data():
-    global current_year  # Reset the current year
+    global current_year
     global end_year
     session = SessionLocal()
 
@@ -201,7 +199,6 @@ def simulate_next_year():
 @app.post("/start-service")
 async def start_service():
     try:
-        # Start the game simulation in a background task
         asyncio.create_task(game_simulation())
         return {"message": "Service has been started successfully."}
     except Exception as e:
