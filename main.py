@@ -156,7 +156,7 @@ def get_games(year: int):
     }
 
 @app.post("/clear-data")
-def clear_data():
+async def clear_data():
     global current_year
     global end_year
     session = SessionLocal()
@@ -170,7 +170,11 @@ def clear_data():
     session.commit()
     session.close()
 
-    return {"message": "All game data has been cleared, and the simulation has been reset to start from 2010."}
+    # Restart the game simulation automatically
+    asyncio.create_task(game_simulation())
+
+    return {"message": "All game data has been cleared, and the simulation has been reset and restarted from 2010."}
+
 
 @app.post("/simulate-next-year")
 def simulate_next_year():
